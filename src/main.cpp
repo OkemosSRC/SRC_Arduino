@@ -1,7 +1,10 @@
 #include <Arduino.h>
 //#include <MD5.h>
 #include "../lib/ArduinoMD5/MD5.h"
+#include "Wire.h"
 
+
+//Hash constants
 String buffer = "";
 const String padding = "<->";
 const String beginPadding = "<^|BEGIN_DATA|>";
@@ -13,6 +16,54 @@ const String opPaddingEnd = "<|END_OPCODE|$>";
 const String hashPaddingBegin = "<^|BEGIN_HASH|#>";
 const String hashPaddingEnd = "<#|END_HASH|$>";
 int loopCount = 0;
+//Sensor constants
+const int MPU_addr=0x68;  // I2C address of the MPU-6050 - If pin AD0 is set to GND, the I2C address is 0x68. If pin AD0 is set to VCC, the I2C address is 0x69
+int16_t AcX,AcY,AcZ,Tmp,GyX,GyY,GyZ;
+
+
+
+char tmp_str[7]; // temporary variable used in convert function
+/**
+ * @brief: converts an integer to a string
+ * @param integer: the integer to convert
+ * @return string: the converted integer
+ */
+char* convert_int16_to_str(int16_t i) { // converts int16 to string. Moreover, resulting strings will have the same length in the debug monitor.
+    sprintf(tmp_str, "%6d", i);
+    return tmp_str;
+}
+
+/**
+ * @brief: Initializes the MPU-6050 gyro and accelerometer
+ */
+void setupGyro() {
+    Wire.begin();
+    Wire.beginTransmission(MPU_addr); //Begin I2C communication
+    Wire.write(0x6B);  // PWR_MGMT_1 register
+    Wire.write(0);     // set to zero (wakes up the MPU-6050)
+    Wire.endTransmission(true);
+}
+
+/**
+* @brief: Collects the values from the sensor. To be ran in loop
+*/
+void gyroLoop() {
+    Wire.beginTransmission(MPU_addr);
+    Wire.write(0x3B);  // starting with register 0x3B (ACCEL_XOUT_H)
+    Wire.endTransmission(false); //endTransmission but keep the connection active
+    Wire.requestFrom(MPU_addr,14,true);  // request a total of 14 registers
+
+    //Read 6 registers total, each axis value is stored in 2 registers
+    AcX=Wire.read()<<8|Wire.read();  // 0x3B (ACCEL_XOUT_H) & 0x3C (ACCEL_XOUT_L)
+    AcY=Wire.read()<<8|Wire.read();  // 0x3D (ACCEL_YOUT_H) & 0x3E (ACCEL_YOUT_L)
+    AcZ=Wire.read()<<8|Wire.read();  // 0x3F (ACCEL_ZOUT_H) & 0x40 (ACCEL_ZOUT_L)
+    Tmp=Wire.read()<<8|Wire.read();  // 0x41 (TEMP_OUT_H) & 0x42 (TEMP_OUT_L)
+    GyX=Wire.read()<<8|Wire.read();  // 0x43 (GYRO_XOUT_H) & 0x44 (GYRO_XOUT_L)
+    GyY=Wire.read()<<8|Wire.read();  // 0x45 (GYRO_YOUT_H) & 0x46 (GYRO_YOUT_L)
+    GyZ=Wire.read()<<8|Wire.read();  // 0x47 (GYRO_ZOUT_H) & 0x48 (GYRO_ZOUT_L)
+    //Convert data to string before sending
+}
+
 
 String formatOPCode(int opCode) {
     String status = "";
